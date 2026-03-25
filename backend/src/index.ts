@@ -9,7 +9,7 @@ import helmet from "helmet";
 import cors from "cors";
 import apiRouter from "./api/index.js";
 import { authMiddleware } from "./middleware/auth.js";
-import { rateLimitMiddleware } from "./middleware/rateLimit.js";
+import { rateLimitMiddleware, sensitiveRateLimitMiddleware } from "./middleware/rateLimit.js";
 import { requireWalletAuth } from "./middleware/requireWalletAuth.js";
 import { getStats, getSearch } from "./api/public.js";
 import { getNonce, getMe } from "./api/auth.js";
@@ -94,7 +94,16 @@ app.get("/api/v1/docs.json", (_req: Request, res: Response) => {
 const authRouter = express.Router();
 authRouter.get("/nonce", rateLimitMiddleware, getNonce);
 authRouter.get("/me", rateLimitMiddleware, requireWalletAuth, getMe);
+// Sensitive: 5 req/min on challenge endpoint
+authRouter.post("/challenge", sensitiveRateLimitMiddleware, (_req: Request, res: Response) => {
+  res.status(501).json({ error: "Not implemented", code: 501 });
+});
 app.use("/api/v1/auth", authRouter);
+
+// ── Webhook routes (sensitive: 5 req/min) ────────────────────────────────────
+app.post("/webhook/register", sensitiveRateLimitMiddleware, (_req: Request, res: Response) => {
+  res.status(501).json({ error: "Not implemented", code: 501 });
+});
 
 // ── Public routes (stats / search) ───────────────────────────────────────────
 app.get("/api/v1/stats", rateLimitMiddleware, getStats);

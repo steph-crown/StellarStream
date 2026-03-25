@@ -164,6 +164,7 @@ enum StreamStatus {
   PAUSED
   COMPLETED
   CANCELED
+  ARCHIVED // V1 stream successfully migrated to V2 — hidden from active UI
 }
 
 // API keys for 3rd-party partner dApps with elevated rate limits
