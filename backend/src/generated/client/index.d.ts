@@ -1667,6 +1667,8 @@ export namespace Prisma {
     duration: number | null
     status: $Enums.StreamStatus | null
     withdrawn: string | null
+    legacy: boolean | null
+    migrated: boolean | null
   }
 
   export type StreamMaxAggregateOutputType = {
@@ -1680,6 +1682,8 @@ export namespace Prisma {
     duration: number | null
     status: $Enums.StreamStatus | null
     withdrawn: string | null
+    legacy: boolean | null
+    migrated: boolean | null
   }
 
   export type StreamCountAggregateOutputType = {
@@ -1693,6 +1697,8 @@ export namespace Prisma {
     duration: number
     status: number
     withdrawn: number
+    legacy: number
+    migrated: number
     _all: number
   }
 
@@ -1716,6 +1722,8 @@ export namespace Prisma {
     duration?: true
     status?: true
     withdrawn?: true
+    legacy?: true
+    migrated?: true
   }
 
   export type StreamMaxAggregateInputType = {
@@ -1729,6 +1737,8 @@ export namespace Prisma {
     duration?: true
     status?: true
     withdrawn?: true
+    legacy?: true
+    migrated?: true
   }
 
   export type StreamCountAggregateInputType = {
@@ -1742,6 +1752,8 @@ export namespace Prisma {
     duration?: true
     status?: true
     withdrawn?: true
+    legacy?: true
+    migrated?: true
     _all?: true
   }
 
@@ -1842,6 +1854,8 @@ export namespace Prisma {
     duration: number | null
     status: $Enums.StreamStatus
     withdrawn: string | null
+    legacy: boolean
+    migrated: boolean
     _count: StreamCountAggregateOutputType | null
     _avg: StreamAvgAggregateOutputType | null
     _sum: StreamSumAggregateOutputType | null
@@ -1874,6 +1888,8 @@ export namespace Prisma {
     duration?: boolean
     status?: boolean
     withdrawn?: boolean
+    legacy?: boolean
+    migrated?: boolean
   }, ExtArgs["result"]["stream"]>
 
   export type StreamSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -1887,6 +1903,8 @@ export namespace Prisma {
     duration?: boolean
     status?: boolean
     withdrawn?: boolean
+    legacy?: boolean
+    migrated?: boolean
   }, ExtArgs["result"]["stream"]>
 
   export type StreamSelectScalar = {
@@ -1900,6 +1918,8 @@ export namespace Prisma {
     duration?: boolean
     status?: boolean
     withdrawn?: boolean
+    legacy?: boolean
+    migrated?: boolean
   }
 
 
@@ -1917,6 +1937,8 @@ export namespace Prisma {
       duration: number | null
       status: $Enums.StreamStatus
       withdrawn: string | null
+      legacy: boolean
+      migrated: boolean
     }, ExtArgs["result"]["stream"]>
     composites: {}
   }
@@ -2320,6 +2342,8 @@ export namespace Prisma {
     readonly duration: FieldRef<"Stream", 'Int'>
     readonly status: FieldRef<"Stream", 'StreamStatus'>
     readonly withdrawn: FieldRef<"Stream", 'String'>
+    readonly legacy: FieldRef<"Stream", 'Boolean'>
+    readonly migrated: FieldRef<"Stream", 'Boolean'>
   }
     
 
@@ -4391,11 +4415,13 @@ export namespace Prisma {
   }
 
   export type EventLogAvgAggregateOutputType = {
+    eventIndex: number | null
     ledger: number | null
     amount: number | null
   }
 
   export type EventLogSumAggregateOutputType = {
+    eventIndex: number | null
     ledger: number | null
     amount: bigint | null
   }
@@ -4405,6 +4431,7 @@ export namespace Prisma {
     eventType: string | null
     streamId: string | null
     txHash: string | null
+    eventIndex: number | null
     ledger: number | null
     ledgerClosedAt: string | null
     sender: string | null
@@ -4419,6 +4446,7 @@ export namespace Prisma {
     eventType: string | null
     streamId: string | null
     txHash: string | null
+    eventIndex: number | null
     ledger: number | null
     ledgerClosedAt: string | null
     sender: string | null
@@ -4433,6 +4461,7 @@ export namespace Prisma {
     eventType: number
     streamId: number
     txHash: number
+    eventIndex: number
     ledger: number
     ledgerClosedAt: number
     sender: number
@@ -4445,11 +4474,13 @@ export namespace Prisma {
 
 
   export type EventLogAvgAggregateInputType = {
+    eventIndex?: true
     ledger?: true
     amount?: true
   }
 
   export type EventLogSumAggregateInputType = {
+    eventIndex?: true
     ledger?: true
     amount?: true
   }
@@ -4459,6 +4490,7 @@ export namespace Prisma {
     eventType?: true
     streamId?: true
     txHash?: true
+    eventIndex?: true
     ledger?: true
     ledgerClosedAt?: true
     sender?: true
@@ -4473,6 +4505,7 @@ export namespace Prisma {
     eventType?: true
     streamId?: true
     txHash?: true
+    eventIndex?: true
     ledger?: true
     ledgerClosedAt?: true
     sender?: true
@@ -4487,6 +4520,7 @@ export namespace Prisma {
     eventType?: true
     streamId?: true
     txHash?: true
+    eventIndex?: true
     ledger?: true
     ledgerClosedAt?: true
     sender?: true
@@ -4588,6 +4622,7 @@ export namespace Prisma {
     eventType: string
     streamId: string
     txHash: string
+    eventIndex: number
     ledger: number
     ledgerClosedAt: string
     sender: string | null
@@ -4621,6 +4656,7 @@ export namespace Prisma {
     eventType?: boolean
     streamId?: boolean
     txHash?: boolean
+    eventIndex?: boolean
     ledger?: boolean
     ledgerClosedAt?: boolean
     sender?: boolean
@@ -4635,6 +4671,7 @@ export namespace Prisma {
     eventType?: boolean
     streamId?: boolean
     txHash?: boolean
+    eventIndex?: boolean
     ledger?: boolean
     ledgerClosedAt?: boolean
     sender?: boolean
@@ -4649,6 +4686,7 @@ export namespace Prisma {
     eventType?: boolean
     streamId?: boolean
     txHash?: boolean
+    eventIndex?: boolean
     ledger?: boolean
     ledgerClosedAt?: boolean
     sender?: boolean
@@ -4667,6 +4705,7 @@ export namespace Prisma {
       eventType: string
       streamId: string
       txHash: string
+      eventIndex: number
       ledger: number
       ledgerClosedAt: string
       sender: string | null
@@ -5071,6 +5110,7 @@ export namespace Prisma {
     readonly eventType: FieldRef<"EventLog", 'String'>
     readonly streamId: FieldRef<"EventLog", 'String'>
     readonly txHash: FieldRef<"EventLog", 'String'>
+    readonly eventIndex: FieldRef<"EventLog", 'Int'>
     readonly ledger: FieldRef<"EventLog", 'Int'>
     readonly ledgerClosedAt: FieldRef<"EventLog", 'String'>
     readonly sender: FieldRef<"EventLog", 'String'>
@@ -11180,7 +11220,9 @@ export namespace Prisma {
     amount: 'amount',
     duration: 'duration',
     status: 'status',
-    withdrawn: 'withdrawn'
+    withdrawn: 'withdrawn',
+    legacy: 'legacy',
+    migrated: 'migrated'
   };
 
   export type StreamScalarFieldEnum = (typeof StreamScalarFieldEnum)[keyof typeof StreamScalarFieldEnum]
@@ -11211,6 +11253,7 @@ export namespace Prisma {
     eventType: 'eventType',
     streamId: 'streamId',
     txHash: 'txHash',
+    eventIndex: 'eventIndex',
     ledger: 'ledger',
     ledgerClosedAt: 'ledgerClosedAt',
     sender: 'sender',
@@ -11454,6 +11497,8 @@ export namespace Prisma {
     duration?: IntNullableFilter<"Stream"> | number | null
     status?: EnumStreamStatusFilter<"Stream"> | $Enums.StreamStatus
     withdrawn?: StringNullableFilter<"Stream"> | string | null
+    legacy?: BoolFilter<"Stream"> | boolean
+    migrated?: BoolFilter<"Stream"> | boolean
   }
 
   export type StreamOrderByWithRelationInput = {
@@ -11467,6 +11512,8 @@ export namespace Prisma {
     duration?: SortOrderInput | SortOrder
     status?: SortOrder
     withdrawn?: SortOrderInput | SortOrder
+    legacy?: SortOrder
+    migrated?: SortOrder
   }
 
   export type StreamWhereUniqueInput = Prisma.AtLeast<{
@@ -11483,6 +11530,8 @@ export namespace Prisma {
     duration?: IntNullableFilter<"Stream"> | number | null
     status?: EnumStreamStatusFilter<"Stream"> | $Enums.StreamStatus
     withdrawn?: StringNullableFilter<"Stream"> | string | null
+    legacy?: BoolFilter<"Stream"> | boolean
+    migrated?: BoolFilter<"Stream"> | boolean
   }, "id" | "streamId" | "txHash">
 
   export type StreamOrderByWithAggregationInput = {
@@ -11496,6 +11545,8 @@ export namespace Prisma {
     duration?: SortOrderInput | SortOrder
     status?: SortOrder
     withdrawn?: SortOrderInput | SortOrder
+    legacy?: SortOrder
+    migrated?: SortOrder
     _count?: StreamCountOrderByAggregateInput
     _avg?: StreamAvgOrderByAggregateInput
     _max?: StreamMaxOrderByAggregateInput
@@ -11517,6 +11568,8 @@ export namespace Prisma {
     duration?: IntNullableWithAggregatesFilter<"Stream"> | number | null
     status?: EnumStreamStatusWithAggregatesFilter<"Stream"> | $Enums.StreamStatus
     withdrawn?: StringNullableWithAggregatesFilter<"Stream"> | string | null
+    legacy?: BoolWithAggregatesFilter<"Stream"> | boolean
+    migrated?: BoolWithAggregatesFilter<"Stream"> | boolean
   }
 
   export type WebhookWhereInput = {
@@ -11623,6 +11676,7 @@ export namespace Prisma {
     eventType?: StringFilter<"EventLog"> | string
     streamId?: StringFilter<"EventLog"> | string
     txHash?: StringFilter<"EventLog"> | string
+    eventIndex?: IntFilter<"EventLog"> | number
     ledger?: IntFilter<"EventLog"> | number
     ledgerClosedAt?: StringFilter<"EventLog"> | string
     sender?: StringNullableFilter<"EventLog"> | string | null
@@ -11637,6 +11691,7 @@ export namespace Prisma {
     eventType?: SortOrder
     streamId?: SortOrder
     txHash?: SortOrder
+    eventIndex?: SortOrder
     ledger?: SortOrder
     ledgerClosedAt?: SortOrder
     sender?: SortOrderInput | SortOrder
@@ -11648,12 +11703,14 @@ export namespace Prisma {
 
   export type EventLogWhereUniqueInput = Prisma.AtLeast<{
     id?: string
+    txHash_eventIndex?: EventLogTxHashEventIndexCompoundUniqueInput
     AND?: EventLogWhereInput | EventLogWhereInput[]
     OR?: EventLogWhereInput[]
     NOT?: EventLogWhereInput | EventLogWhereInput[]
     eventType?: StringFilter<"EventLog"> | string
     streamId?: StringFilter<"EventLog"> | string
     txHash?: StringFilter<"EventLog"> | string
+    eventIndex?: IntFilter<"EventLog"> | number
     ledger?: IntFilter<"EventLog"> | number
     ledgerClosedAt?: StringFilter<"EventLog"> | string
     sender?: StringNullableFilter<"EventLog"> | string | null
@@ -11661,13 +11718,14 @@ export namespace Prisma {
     amount?: BigIntNullableFilter<"EventLog"> | bigint | number | null
     metadata?: StringNullableFilter<"EventLog"> | string | null
     createdAt?: DateTimeFilter<"EventLog"> | Date | string
-  }, "id">
+  }, "id" | "txHash_eventIndex">
 
   export type EventLogOrderByWithAggregationInput = {
     id?: SortOrder
     eventType?: SortOrder
     streamId?: SortOrder
     txHash?: SortOrder
+    eventIndex?: SortOrder
     ledger?: SortOrder
     ledgerClosedAt?: SortOrder
     sender?: SortOrderInput | SortOrder
@@ -11690,6 +11748,7 @@ export namespace Prisma {
     eventType?: StringWithAggregatesFilter<"EventLog"> | string
     streamId?: StringWithAggregatesFilter<"EventLog"> | string
     txHash?: StringWithAggregatesFilter<"EventLog"> | string
+    eventIndex?: IntWithAggregatesFilter<"EventLog"> | number
     ledger?: IntWithAggregatesFilter<"EventLog"> | number
     ledgerClosedAt?: StringWithAggregatesFilter<"EventLog"> | string
     sender?: StringNullableWithAggregatesFilter<"EventLog"> | string | null
@@ -12173,6 +12232,8 @@ export namespace Prisma {
     duration?: number | null
     status?: $Enums.StreamStatus
     withdrawn?: string | null
+    legacy?: boolean
+    migrated?: boolean
   }
 
   export type StreamUncheckedCreateInput = {
@@ -12186,6 +12247,8 @@ export namespace Prisma {
     duration?: number | null
     status?: $Enums.StreamStatus
     withdrawn?: string | null
+    legacy?: boolean
+    migrated?: boolean
   }
 
   export type StreamUpdateInput = {
@@ -12199,6 +12262,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     status?: EnumStreamStatusFieldUpdateOperationsInput | $Enums.StreamStatus
     withdrawn?: NullableStringFieldUpdateOperationsInput | string | null
+    legacy?: BoolFieldUpdateOperationsInput | boolean
+    migrated?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type StreamUncheckedUpdateInput = {
@@ -12212,6 +12277,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     status?: EnumStreamStatusFieldUpdateOperationsInput | $Enums.StreamStatus
     withdrawn?: NullableStringFieldUpdateOperationsInput | string | null
+    legacy?: BoolFieldUpdateOperationsInput | boolean
+    migrated?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type StreamCreateManyInput = {
@@ -12225,6 +12292,8 @@ export namespace Prisma {
     duration?: number | null
     status?: $Enums.StreamStatus
     withdrawn?: string | null
+    legacy?: boolean
+    migrated?: boolean
   }
 
   export type StreamUpdateManyMutationInput = {
@@ -12238,6 +12307,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     status?: EnumStreamStatusFieldUpdateOperationsInput | $Enums.StreamStatus
     withdrawn?: NullableStringFieldUpdateOperationsInput | string | null
+    legacy?: BoolFieldUpdateOperationsInput | boolean
+    migrated?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type StreamUncheckedUpdateManyInput = {
@@ -12251,6 +12322,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     status?: EnumStreamStatusFieldUpdateOperationsInput | $Enums.StreamStatus
     withdrawn?: NullableStringFieldUpdateOperationsInput | string | null
+    legacy?: BoolFieldUpdateOperationsInput | boolean
+    migrated?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type WebhookCreateInput = {
@@ -12356,6 +12429,7 @@ export namespace Prisma {
     eventType: string
     streamId: string
     txHash: string
+    eventIndex?: number
     ledger: number
     ledgerClosedAt: string
     sender?: string | null
@@ -12370,6 +12444,7 @@ export namespace Prisma {
     eventType: string
     streamId: string
     txHash: string
+    eventIndex?: number
     ledger: number
     ledgerClosedAt: string
     sender?: string | null
@@ -12384,6 +12459,7 @@ export namespace Prisma {
     eventType?: StringFieldUpdateOperationsInput | string
     streamId?: StringFieldUpdateOperationsInput | string
     txHash?: StringFieldUpdateOperationsInput | string
+    eventIndex?: IntFieldUpdateOperationsInput | number
     ledger?: IntFieldUpdateOperationsInput | number
     ledgerClosedAt?: StringFieldUpdateOperationsInput | string
     sender?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12398,6 +12474,7 @@ export namespace Prisma {
     eventType?: StringFieldUpdateOperationsInput | string
     streamId?: StringFieldUpdateOperationsInput | string
     txHash?: StringFieldUpdateOperationsInput | string
+    eventIndex?: IntFieldUpdateOperationsInput | number
     ledger?: IntFieldUpdateOperationsInput | number
     ledgerClosedAt?: StringFieldUpdateOperationsInput | string
     sender?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12412,6 +12489,7 @@ export namespace Prisma {
     eventType: string
     streamId: string
     txHash: string
+    eventIndex?: number
     ledger: number
     ledgerClosedAt: string
     sender?: string | null
@@ -12426,6 +12504,7 @@ export namespace Prisma {
     eventType?: StringFieldUpdateOperationsInput | string
     streamId?: StringFieldUpdateOperationsInput | string
     txHash?: StringFieldUpdateOperationsInput | string
+    eventIndex?: IntFieldUpdateOperationsInput | number
     ledger?: IntFieldUpdateOperationsInput | number
     ledgerClosedAt?: StringFieldUpdateOperationsInput | string
     sender?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12440,6 +12519,7 @@ export namespace Prisma {
     eventType?: StringFieldUpdateOperationsInput | string
     streamId?: StringFieldUpdateOperationsInput | string
     txHash?: StringFieldUpdateOperationsInput | string
+    eventIndex?: IntFieldUpdateOperationsInput | number
     ledger?: IntFieldUpdateOperationsInput | number
     ledgerClosedAt?: StringFieldUpdateOperationsInput | string
     sender?: NullableStringFieldUpdateOperationsInput | string | null
@@ -13029,6 +13109,11 @@ export namespace Prisma {
     not?: NestedEnumStreamStatusFilter<$PrismaModel> | $Enums.StreamStatus
   }
 
+  export type BoolFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
+    not?: NestedBoolFilter<$PrismaModel> | boolean
+  }
+
   export type SortOrderInput = {
     sort: SortOrder
     nulls?: NullsOrder
@@ -13045,6 +13130,8 @@ export namespace Prisma {
     duration?: SortOrder
     status?: SortOrder
     withdrawn?: SortOrder
+    legacy?: SortOrder
+    migrated?: SortOrder
   }
 
   export type StreamAvgOrderByAggregateInput = {
@@ -13062,6 +13149,8 @@ export namespace Prisma {
     duration?: SortOrder
     status?: SortOrder
     withdrawn?: SortOrder
+    legacy?: SortOrder
+    migrated?: SortOrder
   }
 
   export type StreamMinOrderByAggregateInput = {
@@ -13075,6 +13164,8 @@ export namespace Prisma {
     duration?: SortOrder
     status?: SortOrder
     withdrawn?: SortOrder
+    legacy?: SortOrder
+    migrated?: SortOrder
   }
 
   export type StreamSumOrderByAggregateInput = {
@@ -13143,9 +13234,12 @@ export namespace Prisma {
     _max?: NestedEnumStreamStatusFilter<$PrismaModel>
   }
 
-  export type BoolFilter<$PrismaModel = never> = {
+  export type BoolWithAggregatesFilter<$PrismaModel = never> = {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolFilter<$PrismaModel> | boolean
+    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedBoolFilter<$PrismaModel>
+    _max?: NestedBoolFilter<$PrismaModel>
   }
 
   export type DateTimeFilter<$PrismaModel = never> = {
@@ -13184,14 +13278,6 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
-  }
-
-  export type BoolWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedBoolFilter<$PrismaModel>
-    _max?: NestedBoolFilter<$PrismaModel>
   }
 
   export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
@@ -13271,11 +13357,17 @@ export namespace Prisma {
     not?: NestedBigIntNullableFilter<$PrismaModel> | bigint | number | null
   }
 
+  export type EventLogTxHashEventIndexCompoundUniqueInput = {
+    txHash: string
+    eventIndex: number
+  }
+
   export type EventLogCountOrderByAggregateInput = {
     id?: SortOrder
     eventType?: SortOrder
     streamId?: SortOrder
     txHash?: SortOrder
+    eventIndex?: SortOrder
     ledger?: SortOrder
     ledgerClosedAt?: SortOrder
     sender?: SortOrder
@@ -13286,6 +13378,7 @@ export namespace Prisma {
   }
 
   export type EventLogAvgOrderByAggregateInput = {
+    eventIndex?: SortOrder
     ledger?: SortOrder
     amount?: SortOrder
   }
@@ -13295,6 +13388,7 @@ export namespace Prisma {
     eventType?: SortOrder
     streamId?: SortOrder
     txHash?: SortOrder
+    eventIndex?: SortOrder
     ledger?: SortOrder
     ledgerClosedAt?: SortOrder
     sender?: SortOrder
@@ -13309,6 +13403,7 @@ export namespace Prisma {
     eventType?: SortOrder
     streamId?: SortOrder
     txHash?: SortOrder
+    eventIndex?: SortOrder
     ledger?: SortOrder
     ledgerClosedAt?: SortOrder
     sender?: SortOrder
@@ -13319,6 +13414,7 @@ export namespace Prisma {
   }
 
   export type EventLogSumOrderByAggregateInput = {
+    eventIndex?: SortOrder
     ledger?: SortOrder
     amount?: SortOrder
   }
@@ -13774,6 +13870,11 @@ export namespace Prisma {
     not?: NestedEnumStreamStatusFilter<$PrismaModel> | $Enums.StreamStatus
   }
 
+  export type NestedBoolFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
+    not?: NestedBoolFilter<$PrismaModel> | boolean
+  }
+
   export type NestedStringWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -13856,9 +13957,12 @@ export namespace Prisma {
     _max?: NestedEnumStreamStatusFilter<$PrismaModel>
   }
 
-  export type NestedBoolFilter<$PrismaModel = never> = {
+  export type NestedBoolWithAggregatesFilter<$PrismaModel = never> = {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolFilter<$PrismaModel> | boolean
+    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedBoolFilter<$PrismaModel>
+    _max?: NestedBoolFilter<$PrismaModel>
   }
 
   export type NestedDateTimeFilter<$PrismaModel = never> = {
@@ -13870,14 +13974,6 @@ export namespace Prisma {
     gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     not?: NestedDateTimeFilter<$PrismaModel> | Date | string
-  }
-
-  export type NestedBoolWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedBoolFilter<$PrismaModel>
-    _max?: NestedBoolFilter<$PrismaModel>
   }
 
   export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {

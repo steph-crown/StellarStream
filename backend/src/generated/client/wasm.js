@@ -132,7 +132,9 @@ exports.Prisma.StreamScalarFieldEnum = {
   amount: 'amount',
   duration: 'duration',
   status: 'status',
-  withdrawn: 'withdrawn'
+  withdrawn: 'withdrawn',
+  legacy: 'legacy',
+  migrated: 'migrated'
 };
 
 exports.Prisma.WebhookScalarFieldEnum = {
@@ -154,6 +156,7 @@ exports.Prisma.EventLogScalarFieldEnum = {
   eventType: 'eventType',
   streamId: 'streamId',
   txHash: 'txHash',
+  eventIndex: 'eventIndex',
   ledger: 'ledger',
   ledgerClosedAt: 'ledgerClosedAt',
   sender: 'sender',
