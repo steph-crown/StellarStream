@@ -23,10 +23,13 @@ model Stream {
   duration     Int?
   status       StreamStatus @default(ACTIVE)
   withdrawn    String?      @default("0")
+  legacy       Boolean      @default(false) // true = originated from V1 contract
+  migrated     Boolean      @default(false) // true = V1 stream superseded by V2
 
   @@index([sender])
   @@index([receiver])
   @@index([streamId])
+  @@index([legacy])
 }
 
 // Registered Webhooks for external notifications
@@ -51,6 +54,7 @@ model EventLog {
   eventType      String // create, withdraw, cancel
   streamId       String
   txHash         String
+  eventIndex     Int      @default(0) // Position of event within the transaction
   ledger         Int
   ledgerClosedAt String
   sender         String?
@@ -59,6 +63,7 @@ model EventLog {
   metadata       String? // JSON string
   createdAt      DateTime @default(now())
 
+  @@unique([txHash, eventIndex])
   @@index([streamId])
   @@index([eventType])
   @@index([createdAt])

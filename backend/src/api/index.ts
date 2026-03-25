@@ -10,6 +10,7 @@ import snapshotRouter from "./snapshot.routes";
 import governanceRouter from "./governance.routes.js";
 import gasTankRouter from "./gas-tank.routes.js";
 import analyticsRouter from "./analytics.routes.js";
+import walletAuthRouter from "./wallet-auth.routes.js";
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use("/snapshots", snapshotRouter);
 router.use("/", governanceRouter);
 router.use("/", gasTankRouter);
 router.use("/analytics", analyticsRouter);
+router.use("/auth", walletAuthRouter);
 
 const auditLogService = new AuditLogService();
 
