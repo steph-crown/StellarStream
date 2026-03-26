@@ -167,14 +167,35 @@ export default function StreamingBalanceCard({
   const [balance, setBalance] = useState(resolvedInitial);
   const rafRef = useRef<number>(0);
   const lastRef = useRef<number | null>(null);
+  const baseBalanceRef = useRef(resolvedInitial);
+  const baseTimeRef = useRef(performance.now());
 
-  // Sync balance when stream data changes (e.g. new block)
+  // Smoothly sync balance when stream data changes (e.g. new block confirmed)
+  // Instead of jumping, we adjust the base reference point
   useEffect(() => {
-    if (stream) setBalance(flowRate.balance);
-  }, [stream, flowRate.balance]);
+    if (stream) {
+      const now = performance.now();
+      const currentProjected = baseBalanceRef.current + resolvedRate * (now - baseTimeRef.current);
+      const diff = Math.abs(currentProjected - flowRate.balance);
+      
+      // Only adjust if the difference is significant (> 0.1% or > 0.0001 tokens)
+      // This prevents micro-adjustments from causing visual jitter
+      if (diff > Math.max(flowRate.balance * 0.001, 0.0001)) {
+        // Smoothly transition to the new balance by updating the base reference
+        baseBalanceRef.current = flowRate.balance;
+        baseTimeRef.current = now;
+        setBalance(flowRate.balance);
+      }
+    }
+  }, [stream, flowRate.balance, resolvedRate]);
 
   useEffect(() => {
+    // Reset animation state when rate changes
+    baseBalanceRef.current = resolvedInitial;
+    baseTimeRef.current = performance.now();
+    setBalance(resolvedInitial);
     lastRef.current = null;
+
     const tick = (ts: number) => {
       if (lastRef.current !== null) {
         const delta = ts - lastRef.current;
@@ -185,7 +206,7 @@ export default function StreamingBalanceCard({
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [resolvedRate]);
+  }, [resolvedRate, resolvedInitial]);
 
   return (
     <div
