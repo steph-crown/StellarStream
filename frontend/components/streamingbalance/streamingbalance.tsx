@@ -5,6 +5,8 @@ import { motion, useSpring, useTransform } from "framer-motion";
 import type { Stream } from "@/lib/contracts/stellarstream";
 import { useFlowRate } from "@/lib/use-flow-rate";
 import { useAssetDecimals } from "@/lib/use-asset-decimals";
+import { useAssetPrice } from "@/lib/use-asset-price";
+import { AnimatePresence } from "framer-motion";
 
 const DIGIT_HEIGHT = 56;
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -208,6 +210,14 @@ export default function StreamingBalanceCard({
     return () => cancelAnimationFrame(rafRef.current);
   }, [resolvedRate, resolvedInitial]);
 
+  const { price, justUpdated, isLoading: isPriceLoading } = useAssetPrice(assetCode || "XLM");
+  const [view, setView] = useState<"native" | "usd">("usd");
+
+  const displayValue = view === "usd" && price !== null ? balance * price : balance;
+  const displayPrefix = view === "usd" ? "$" : "";
+  const displayDecimals = view === "usd" ? 2 : decimals;
+  const displayAssetCode = view === "native" ? (assetCode || "XLM") : "USD";
+
   return (
     <div
       style={{
@@ -218,7 +228,12 @@ export default function StreamingBalanceCard({
         boxShadow: `0 0 0 1px ${color}11, 0 8px 32px rgba(0,0,0,0.5), 0 0 60px ${color}12, inset 0 1px 0 ${color}18, inset 0 0 40px ${color}07`,
         position: "relative",
         display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "12px",
+        cursor: "pointer",
       }}
+      onClick={() => setView((v) => (v === "native" ? "usd" : "native"))}
     >
       {CORNERS.map(([v, h]) => (
         <div
@@ -236,12 +251,74 @@ export default function StreamingBalanceCard({
           }}
         />
       ))}
-      <Odometer
-        value={balance}
-        prefix={prefix}
-        decimals={decimals}
-        color={color}
-      />
+      
+      <div style={{ position: "relative" }}>
+        <Odometer
+          value={displayValue}
+          prefix={displayPrefix}
+          decimals={displayDecimals}
+          color={color}
+        />
+        
+        {/* Pulse Indicator from Oracle */}
+        <AnimatePresence>
+          {justUpdated && view === "usd" && (
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: [1, 2, 1], opacity: [0, 0.8, 0] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, repeat: 1 }}
+              style={{
+                position: "absolute",
+                top: -10,
+                right: -20,
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: color,
+                boxShadow: `0 0 15px ${color}`,
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ fontSize: "12px", color: `${color}88`, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            {displayAssetCode}
+          </span>
+          {isPriceLoading && view === "usd" && (
+            <span style={{ fontSize: "10px", color: `${color}44`, animation: "pulse 2s infinite" }}>
+              Oracle Sync...
+            </span>
+          )}
+        </div>
+        
+        <div style={{ fontSize: "10px", color: `${color}66`, fontWeight: 500 }}>
+          CLICK TO TOGGLE VIEW
+        </div>
+      </div>
+
+      {justUpdated && view === "usd" && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "absolute",
+            bottom: -20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: "10px",
+            color,
+            fontWeight: "bold",
+            letterSpacing: "0.05em",
+          }}
+        >
+          ORACLE UPDATED
+        </motion.div>
+      )}
     </div>
   );
 }
