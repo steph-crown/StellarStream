@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   History as HistoryIcon,
   Shield,
+  ShieldAlert,
   Menu,
   X,
 } from "lucide-react";
@@ -79,6 +80,11 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       icon: CirclePlus,
     },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
+    {
+      label: "Security Vault",
+      href: "/dashboard/security-vault",
+      icon: ShieldAlert,
+    },
   ];
 
   return (
