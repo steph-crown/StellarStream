@@ -1,15 +1,20 @@
-## Description
+## feat: Affiliate Portal — Split Revenue Share Tracker
 
-A functional view for partners to track their 0.1% revenue share from splits they referred.
+### Description
+Adds a dedicated **Affiliate Portal** for partners to track their 0.1% revenue share from splits they referred through the V3 Splitter contract.
 
-## Technical Tasks
+### Changes
 
-- [x] Create an "Affiliate Portal" at `/dashboard/affiliate`
-- [x] Logic: Fetch all splits where the user's address was the `affiliate_id`
-- [x] Backend: `GET /api/v2/affiliate/splits?address=<G...>` — queries streams by `affiliateId`, returns split metadata + computed 0.1% cut per split
-- [x] Frontend hook: `use-affiliate-portal.ts` — parallel fetch of earnings summary and referred splits
-- [x] UI: Stats row (Total Earned, Pending Claim, Referred Splits) + splits table with per-row affiliate cut
-- [x] Sidebar nav item added under Splitter
+**Backend**
+- Added `getAffiliateSplits()` to `AffiliateService` — fetches all splits where the caller was the `affiliate_id`, with the 0.1% cut computed per split
+- New endpoint: `GET /api/v2/affiliate/splits?address=<G...>`
 
-## Labels
-`[Frontend]` `Data-Viz` `Medium`
+**Frontend**
+- `use-affiliate-portal.ts` hook — parallel fetch of earnings summary + referred splits
+- `/dashboard/affiliate` page with:
+  - Stats cards: Total Earned, Pending Claim, Referred Splits count
+  - Splits table: sender, date, split total, and affiliate cut per row
+- Sidebar nav item added under Splitter
+
+### Labels
+`[Frontend]` `[Backend]` `Data-Viz` `Medium`
