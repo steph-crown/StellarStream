@@ -5,12 +5,10 @@ on:
     branches: [main]
     paths:
       - 'contracts/**'
-      - '.github/workflows/rust-ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'contracts/**'
-      - '.github/workflows/rust-ci.yml'
 
 jobs:
   test-and-lint:
