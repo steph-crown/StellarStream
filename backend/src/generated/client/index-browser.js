@@ -401,6 +401,43 @@ exports.Prisma.AssetConfigScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.AssetMappingScalarFieldEnum = {
+  id: 'id',
+  stellarAssetId: 'stellarAssetId',
+  symbol: 'symbol',
+  sourceChain: 'sourceChain',
+  sourceContract: 'sourceContract',
+  label: 'label',
+  bridgeProtocol: 'bridgeProtocol',
+  decimals: 'decimals',
+  isNative: 'isNative',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PriceHistoryScalarFieldEnum = {
+  id: 'id',
+  asset: 'asset',
+  symbol: 'symbol',
+  priceUsd: 'priceUsd',
+  source: 'source',
+  recordedAt: 'recordedAt'
+};
+
+exports.Prisma.SplitLogScalarFieldEnum = {
+  id: 'id',
+  streamId: 'streamId',
+  asset: 'asset',
+  amount: 'amount',
+  sender: 'sender',
+  receiver: 'receiver',
+  txHash: 'txHash',
+  priceUsd: 'priceUsd',
+  priceSource: 'priceSource',
+  priceRecordedAt: 'priceRecordedAt',
+  executedAt: 'executedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -466,7 +503,10 @@ exports.Prisma.ModelName = {
   TvlSnapshot: 'TvlSnapshot',
   Asset: 'Asset',
   AutopilotSchedule: 'AutopilotSchedule',
-  AssetConfig: 'AssetConfig'
+  AssetConfig: 'AssetConfig',
+  AssetMapping: 'AssetMapping',
+  PriceHistory: 'PriceHistory',
+  SplitLog: 'SplitLog'
 };
 
 /**
