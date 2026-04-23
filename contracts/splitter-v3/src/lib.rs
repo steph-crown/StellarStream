@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, BytesN, Env, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, Vec,
 };
 
 mod errors;
@@ -110,19 +110,79 @@ impl SplitterV3 {
 
     // ── #922: Circuit-breaker ─────────────────────────────────────────────────
 
-    pub fn pause(env: Env) -> Result<(), Error> {
-        Self::_require_admin(&env)?;
-        env.storage().instance().set(&DataKey::ContractState, &ContractState::Paused);
-        env.events().publish((symbol_short!("paused"),), true);
+        Self::_bump_instance_ttl(&env);
         Ok(())
     }
 
-    pub fn unpause(env: Env) -> Result<(), Error> {
+    // ── #924: WASM upgrade with migration version guard ───────────────────────
+
+    /// Upgrade the contract WASM. Gated by the admin quorum.
+    /// Stores a `MigrationVersion` so the same migration cannot run twice.
+    pub fn upgrade(
+        env: Env,
+        new_wasm_hash: BytesN<32>,
+        migration_version: u32,
+    ) -> Result<(), Error> {
         Self::_require_admin(&env)?;
-        env.storage().instance().set(&DataKey::ContractState, &ContractState::Active);
-        env.events().publish((symbol_short!("paused"),), false);
+
+        let current_version: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::MigrationVersion)
+            .unwrap_or(0);
+
+        if migration_version <= current_version {
+            return Err(Error::MigrationAlreadyApplied);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::MigrationVersion, &migration_version);
+
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
         Ok(())
     }
+
+    // ── #927: Whitelist management ────────────────────────────────────────────
+
+    /// Add `address` to the recipient whitelist. Admin only.
+    pub fn add_to_whitelist(env: Env, address: Address) -> Result<(), Error> {
+        Self::_require_admin(&env)?;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Whitelisted(address.clone()), &true);
+        Self::_bump_persistent_ttl(&env, &DataKey::Whitelisted(address));
+        Ok(())
+    }
+
+    /// Remove `address` from the recipient whitelist. Admin only.
+    pub fn remove_from_whitelist(env: Env, address: Address) -> Result<(), Error> {
+        Self::_require_admin(&env)?;
+        env.storage()
+            .persistent()
+            .remove(&DataKey::Whitelisted(address));
+        Ok(())
+    }
+
+    /// Enable or disable whitelist-only mode for `split_funds`. Admin only.
+    pub fn set_whitelist_only(env: Env, enabled: bool) -> Result<(), Error> {
+        Self::_require_admin(&env)?;
+        env.storage()
+            .instance()
+            .set(&DataKey::WhitelistOnly, &enabled);
+        Self::_bump_instance_ttl(&env);
+        Ok(())
+    }
+
+    /// View whether an address is whitelisted.
+    pub fn is_whitelisted(env: Env, address: Address) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Whitelisted(address))
+            .unwrap_or(false)
+    }
+
+    // ── #633: Verification management (single-admin) ──────────────────────────
 
     // ── #919: Affiliate config ────────────────────────────────────────────────
 
@@ -179,6 +239,9 @@ impl SplitterV3 {
         let proposal = Proposal { action, approvals, executed: false };
         env.storage().persistent().set(&DataKey::Proposal(id), &proposal);
         env.storage().instance().set(&DataKey::NextProposalId, &(id + 1));
+        Self::_bump_persistent_ttl(&env, &DataKey::Proposal(id));
+        Self::_bump_instance_ttl(&env);
+
         Ok(id)
     }
 
@@ -341,11 +404,32 @@ impl SplitterV3 {
         let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
         let token_client = token::Client::new(&env, &token_addr);
         token_client.transfer(&sender, &env.current_contract_address(), &total_amount);
-        let split_id: u64 = env.storage().instance().get(&DataKey::NextSplitId).unwrap_or(0);
-        env.storage().instance().set(&DataKey::NextSplitId, &(split_id + 1));
-        let config = SplitConfig { sender, recipients, total_amount, release_time, status: SplitStatus::Pending };
-        env.storage().persistent().set(&DataKey::ScheduledSplit(split_id), &config);
-        env.events().publish((symbol_short!("sched"), split_id), release_time);
+
+        // Assign and increment the split id counter.
+        let split_id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextSplitId)
+            .unwrap_or(0);
+        env.storage()
+            .instance()
+            .set(&DataKey::NextSplitId, &(split_id + 1));
+
+        let config = SplitConfig {
+            sender,
+            recipients,
+            total_amount,
+            release_time,
+            status: SplitStatus::Pending,
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::ScheduledSplit(split_id), &config);
+        Self::_bump_persistent_ttl(&env, &DataKey::ScheduledSplit(split_id));
+
+        env.events()
+            .publish((symbol_short!("sched"), split_id), release_time);
+
         Ok(split_id)
     }
 
@@ -483,6 +567,10 @@ impl SplitterV3 {
     // (set via `set_affiliate`) receives their bps share, credited to their
     // `PendingWithdrawal` map entry (pull pattern).
 
+    /// Authenticated batch transfer: sender authorizes the entire batch,
+    /// asset is validated as a live token contract, and recipients must be non-empty.
+    /// #926: uses try_transfer — if any transfer fails the whole tx panics (atomic rollback).
+    /// #927: if whitelist-only mode is on, every recipient must be whitelisted.
     pub fn split_funds(
         env: Env,
         sender: Address,
@@ -494,6 +582,31 @@ impl SplitterV3 {
         sender.require_auth();
         if recipients.is_empty() { return Err(Error::EmptyRecipients); }
 
+        // Security: recipients list must not be empty.
+        if recipients.is_empty() {
+            return Err(Error::EmptyRecipients);
+        }
+
+        // #927: whitelist-only guard.
+        let whitelist_only: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::WhitelistOnly)
+            .unwrap_or(false);
+        if whitelist_only {
+            for r in recipients.iter() {
+                let is_wl: bool = env
+                    .storage()
+                    .persistent()
+                    .get(&DataKey::Whitelisted(r.address.clone()))
+                    .unwrap_or(false);
+                if !is_wl {
+                    return Err(Error::RecipientNotWhitelisted);
+                }
+            }
+        }
+
+        // Security: validate asset is a live token contract by calling decimals().
         let token_client = token::Client::new(&env, &asset);
         let _ = token_client.decimals();
 
@@ -502,80 +615,16 @@ impl SplitterV3 {
 
         let contract_addr = env.current_contract_address();
 
-        // Only pull tokens on the first chunk (next_index == 0).
-        let next_index: u32 = env
-            .storage()
-            .instance()
-            .get(&DataKey::SplitFundsNextIndex)
-            .unwrap_or(0);
-
-        if next_index == 0 {
-            token_client.transfer(&sender, &contract_addr, &total_amount);
-
-            // #919: credit affiliate pending withdrawal before distribution.
-            if let Some(aff_addr) = env
-                .storage()
-                .instance()
-                .get::<DataKey, Address>(&DataKey::AffiliateAddress)
-            {
-                let aff_bps: u32 = env
-                    .storage()
-                    .instance()
-                    .get(&DataKey::AffiliateBps)
-                    .unwrap_or(0);
-                if aff_bps > 0 {
-                    let aff_amount = total_amount
-                        .checked_mul(aff_bps as i128)
-                        .ok_or(Error::Overflow)?
-                        / 10_000;
-                    if aff_amount > 0 {
-                        let key = DataKey::PendingWithdrawal(aff_addr.clone());
-                        let current: i128 =
-                            env.storage().persistent().get(&key).unwrap_or(0);
-                        env.storage()
-                            .persistent()
-                            .set(&key, &current.checked_add(aff_amount).ok_or(Error::Overflow)?);
-                        env.events()
-                            .publish((symbol_short!("aff_pend"), aff_addr), aff_amount);
-                    }
-                }
-            }
-        }
-
-        // #920: chunked processing.
-        const CHUNK: u32 = 50;
-        let len = recipients.len();
-
-        if len > CHUNK {
-            let end = (next_index + CHUNK).min(len);
-            for i in next_index..end {
-                let r = recipients.get(i).unwrap();
-                let amount = total_amount
-                    .checked_mul(r.share_bps as i128)
-                    .ok_or(Error::Overflow)?
-                    / 10_000;
-                if amount > 0 {
-                    token_client.transfer(&contract_addr, &r.address, &amount);
-                }
-            }
-            if end < len {
-                // More chunks remain — persist progress and bump TTL.
-                env.storage().instance().set(&DataKey::SplitFundsNextIndex, &end);
-                env.storage().instance().bump(17280, 17280); // ~1 day in ledgers
-            } else {
-                // All done — clear state.
-                env.storage().instance().set(&DataKey::SplitFundsNextIndex, &0u32);
-            }
-        } else {
-            // Small list — process in one shot.
-            for r in recipients.iter() {
-                let amount = total_amount
-                    .checked_mul(r.share_bps as i128)
-                    .ok_or(Error::Overflow)?
-                    / 10_000;
-                if amount > 0 {
-                    token_client.transfer(&contract_addr, &r.address, &amount);
-                }
+        // #926: use try_transfer — panic on any failure to trigger atomic rollback.
+        for r in recipients.iter() {
+            let amount = total_amount
+                .checked_mul(r.share_bps as i128)
+                .ok_or(Error::Overflow)?
+                / 10_000;
+            if amount > 0 {
+                token_client
+                    .try_transfer(&contract_addr, &r.address, &amount)
+                    .map_err(|_| Error::TransferFailed)?;
             }
         }
 
@@ -749,6 +798,7 @@ impl SplitterV3 {
         let current: i128 = env.storage().persistent().get(&key).unwrap_or(0);
         let updated = current.checked_add(amount).ok_or(Error::Overflow)?;
         env.storage().persistent().set(&key, &updated);
+        Self::_bump_persistent_ttl(env, &key);
         Ok(())
     }
 
@@ -772,83 +822,16 @@ impl SplitterV3 {
         Ok(())
     }
 
-    // ── Task 1: Read-only pre-flight balance check ────────────────────────────
+    // ── #925: TTL helpers ─────────────────────────────────────────────────────
 
-    /// Reads the sender's token balance in a single read-only call and reverts
-    /// with `InsufficientBalance` if it is less than `required`.
-    /// No cross-contract state mutation occurs here — pure CPU savings.
-    pub fn check_balances_bulk(
-        env: &Env,
-        token_client: &token::Client,
-        sender: &Address,
-        required: i128,
-    ) -> Result<(), Error> {
-        let balance = token_client.balance(sender);
-        if balance < required {
-            return Err(Error::InsufficientBalance);
-        }
-        Ok(())
+    /// Bump instance storage TTL (~1 year in ledgers at ~5s/ledger).
+    fn _bump_instance_ttl(env: &Env) {
+        // 6_312_000 ledgers ≈ 1 year; threshold at half that.
+        env.storage().instance().extend_ttl(3_110_400, 6_220_800);
     }
 
-    // ── Task 2 & 4: Idempotency hash ─────────────────────────────────────────
-
-    /// Builds a SHA-256 hash over `(amount_be || salt || recipient_bps... || sender_xdr)`.
-    /// Used to detect replayed disbursements.
-    fn _compute_split_hash(
-        env: &Env,
-        sender: &Address,
-        recipients: &Vec<Recipient>,
-        amount: i128,
-        salt: &BytesN<32>,
-    ) -> Result<BytesN<32>, Error> {
-        let mut preimage = Bytes::new(env);
-
-        // amount as 16 big-endian bytes
-        let amount_u128 = amount as u128;
-        let a0 = ((amount_u128 >> 120) & 0xff) as u8;
-        let a1 = ((amount_u128 >> 112) & 0xff) as u8;
-        let a2 = ((amount_u128 >> 104) & 0xff) as u8;
-        let a3 = ((amount_u128 >> 96)  & 0xff) as u8;
-        let a4 = ((amount_u128 >> 88)  & 0xff) as u8;
-        let a5 = ((amount_u128 >> 80)  & 0xff) as u8;
-        let a6 = ((amount_u128 >> 72)  & 0xff) as u8;
-        let a7 = ((amount_u128 >> 64)  & 0xff) as u8;
-        let a8 = ((amount_u128 >> 56)  & 0xff) as u8;
-        let a9 = ((amount_u128 >> 48)  & 0xff) as u8;
-        let a10 = ((amount_u128 >> 40) & 0xff) as u8;
-        let a11 = ((amount_u128 >> 32) & 0xff) as u8;
-        let a12 = ((amount_u128 >> 24) & 0xff) as u8;
-        let a13 = ((amount_u128 >> 16) & 0xff) as u8;
-        let a14 = ((amount_u128 >> 8)  & 0xff) as u8;
-        let a15 = (amount_u128 & 0xff) as u8;
-        preimage.push_back(a0);  preimage.push_back(a1);
-        preimage.push_back(a2);  preimage.push_back(a3);
-        preimage.push_back(a4);  preimage.push_back(a5);
-        preimage.push_back(a6);  preimage.push_back(a7);
-        preimage.push_back(a8);  preimage.push_back(a9);
-        preimage.push_back(a10); preimage.push_back(a11);
-        preimage.push_back(a12); preimage.push_back(a13);
-        preimage.push_back(a14); preimage.push_back(a15);
-
-        // salt (32 bytes)
-        let salt_bytes: Bytes = salt.clone().into();
-        preimage.append(&salt_bytes);
-
-        // each recipient share_bps as 4 big-endian bytes
-        for r in recipients.iter() {
-            let b = r.share_bps;
-            preimage.push_back(((b >> 24) & 0xff) as u8);
-            preimage.push_back(((b >> 16) & 0xff) as u8);
-            preimage.push_back(((b >> 8)  & 0xff) as u8);
-            preimage.push_back((b & 0xff) as u8);
-        }
-
-        // sender: hash its contract-address bytes via a nested sha256
-        // We encode the sender as a BytesN<32> seed by hashing a fixed tag + index
-        // Instead, use the sender's address converted to bytes via soroban's to_xdr
-        let sender_bytes = sender.to_xdr(env);
-        preimage.append(&sender_bytes);
-
-        Ok(env.crypto().sha256(&preimage))
+    /// Bump a single persistent storage entry TTL.
+    fn _bump_persistent_ttl(env: &Env, key: &DataKey) {
+        env.storage().persistent().extend_ttl(key, 3_110_400, 6_220_800);
     }
 }
