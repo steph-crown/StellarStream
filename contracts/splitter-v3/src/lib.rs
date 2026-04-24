@@ -58,6 +58,31 @@ pub struct Proposal {
     pub executed: bool,
 }
 
+// ── #916: Sensitive admin change proposal types ───────────────────────────────
+
+/// Actions that require multi-sig quorum approval before execution.
+/// Covers fee-wallet changes, contract upgrades, and pause/unpause.
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub enum AdminChangeAction {
+    /// Update the protocol fee-wallet address.
+    UpdateFeeWallet(Address),
+    /// Upgrade the contract WASM to a new hash (with migration version guard).
+    UpgradeWasm(soroban_sdk::BytesN<32>, u32),
+    /// Set the circuit-breaker state (Active or Paused).
+    SetContractState(ContractState),
+}
+
+/// Pending multi-sig proposal for a sensitive admin action.
+#[contracttype]
+#[derive(Clone)]
+pub struct AdminProposal {
+    pub action: AdminChangeAction,
+    pub approvals: Vec<Address>,
+    pub threshold: u32,
+    pub executed: bool,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SplitStatus {
@@ -160,6 +185,18 @@ impl SplitterV3 {
         env.storage()
             .instance()
             .set(&DataKey::ContractState, &ContractState::Active);
+        // #916: default admin threshold = majority of quorum_admins (at least 2)
+        let threshold: u32 = if quorum_admins.len() >= 2 {
+            (quorum_admins.len() / 2 + 1) as u32
+        } else {
+            1
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::AdminThreshold, &threshold);
+        env.storage()
+            .instance()
+            .set(&DataKey::NextAdminProposalId, &0u64);
         Self::_set_verified(&env, &owner, true);
         for addr in quorum_admins.iter() {
             Self::_set_verified(&env, &addr, true);
@@ -169,22 +206,28 @@ impl SplitterV3 {
 
     // ── #911: Protocol-level init (fee wallet + version constants) ────────────
 
-    /// Stores protocol-level constants: fee wallet address and contract version.
-    /// Can only be called once (guarded by Admin key existence).
-    /// Separate from `initialize` so protocol constants can be set independently.
-    pub fn init(env: Env, fee_wallet: Address, version: u32) -> Result<(), Error> {
+    /// Update the fee wallet address. Requires a passed admin proposal (#916).
+    /// Use `propose_admin_change` + `approve_admin_change` to create and approve
+    /// an `UpdateFeeWallet` proposal, then call this with the proposal_id.
+    pub fn init(env: Env, caller: Address, proposal_id: u64, version: u32) -> Result<(), Error> {
         if !env.storage().instance().has(&DataKey::Admin) {
             return Err(Error::NotAdmin);
         }
-        Self::_require_admin(&env)?;
-        env.storage()
-            .instance()
-            .set(&DataKey::FeeWallet, &fee_wallet);
-        env.storage()
-            .instance()
-            .set(&DataKey::ProtocolVersion, &version);
-        Self::_bump_instance_ttl(&env);
-        Ok(())
+        caller.require_auth();
+        let action = Self::_consume_admin_proposal(&env, &caller, proposal_id,
+            |action| matches!(action, AdminChangeAction::UpdateFeeWallet(_)))?;
+        if let AdminChangeAction::UpdateFeeWallet(fee_wallet) = action {
+            env.storage()
+                .instance()
+                .set(&DataKey::FeeWallet, &fee_wallet);
+            env.storage()
+                .instance()
+                .set(&DataKey::ProtocolVersion, &version);
+            Self::_bump_instance_ttl(&env);
+            Ok(())
+        } else {
+            Err(Error::NotAuthorizedAdmin)
+        }
     }
 
     /// View the stored protocol version.
@@ -200,44 +243,150 @@ impl SplitterV3 {
         env.storage().instance().get(&DataKey::FeeWallet)
     }
 
-    // ── #922: Circuit-breaker ─────────────────────────────────────────────────
+    // ── #916: Multi-sig admin change proposals ────────────────────────────────
 
-    pub fn set_contract_state(env: Env, state: ContractState) -> Result<(), Error> {
-        Self::_require_admin(&env)?;
+    /// Propose a sensitive admin action (fee wallet change, upgrade, or pause).
+    /// The caller must be a quorum admin. The proposal is created with the
+    /// caller's approval already counted. Returns the new proposal ID.
+    pub fn propose_admin_change(
+        env: Env,
+        caller: Address,
+        action: AdminChangeAction,
+    ) -> Result<u64, Error> {
+        caller.require_auth();
+        Self::_require_quorum_admin(&env, &caller)?;
+
+        let id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextAdminProposalId)
+            .unwrap_or(0);
+        let threshold: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::AdminThreshold)
+            .unwrap_or(2);
+        let mut approvals: Vec<Address> = Vec::new(&env);
+        approvals.push_back(caller.clone());
+
+        let proposal = AdminProposal {
+            action,
+            approvals,
+            threshold,
+            executed: false,
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::AdminProposal(id), &proposal);
         env.storage()
             .instance()
-            .set(&DataKey::ContractState, &state);
+            .set(&DataKey::NextAdminProposalId, &(id + 1));
+        Self::_bump_persistent_ttl(&env, &DataKey::AdminProposal(id));
         Self::_bump_instance_ttl(&env);
+
+        env.events()
+            .publish((symbol_short!("admprop"), caller), id);
+        Ok(id)
+    }
+
+    /// Approve a pending admin change proposal. Once approvals reach the
+    /// threshold the proposal is ready to be executed via the gated function.
+    pub fn approve_admin_change(
+        env: Env,
+        caller: Address,
+        proposal_id: u64,
+    ) -> Result<(), Error> {
+        caller.require_auth();
+        Self::_require_quorum_admin(&env, &caller)?;
+
+        let mut proposal: AdminProposal = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminProposal(proposal_id))
+            .ok_or(Error::ProposalNotFound)?;
+
+        if proposal.executed {
+            return Err(Error::AlreadyExecuted);
+        }
+        for existing in proposal.approvals.iter() {
+            if existing == caller {
+                return Err(Error::AlreadyApproved);
+            }
+        }
+        proposal.approvals.push_back(caller.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::AdminProposal(proposal_id), &proposal);
+        Self::_bump_persistent_ttl(&env, &DataKey::AdminProposal(proposal_id));
+
+        env.events()
+            .publish((symbol_short!("admapprv"), caller), proposal_id);
         Ok(())
+    }
+
+    /// View a pending admin change proposal.
+    pub fn get_admin_proposal(env: Env, proposal_id: u64) -> Option<AdminProposal> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::AdminProposal(proposal_id))
+    }
+
+    /// View the current admin threshold.
+    pub fn admin_threshold(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::AdminThreshold)
+            .unwrap_or(2)
+    }
+
+    // ── #922: Circuit-breaker ─────────────────────────────────────────────────
+
+    /// Pause or unpause the contract. Requires a passed admin proposal (#916).
+    /// Use `propose_admin_change` + `approve_admin_change` to create and approve
+    /// a `SetContractState` proposal, then call this with the proposal_id.
+    pub fn set_contract_state(env: Env, caller: Address, proposal_id: u64) -> Result<(), Error> {
+        caller.require_auth();
+        let new_state = Self::_consume_admin_proposal(&env, &caller, proposal_id,
+            |action| matches!(action, AdminChangeAction::SetContractState(_)))?;
+        if let AdminChangeAction::SetContractState(state) = new_state {
+            env.storage()
+                .instance()
+                .set(&DataKey::ContractState, &state);
+            Self::_bump_instance_ttl(&env);
+            env.events()
+                .publish((symbol_short!("setstate"), proposal_id), ());
+            Ok(())
+        } else {
+            Err(Error::NotAuthorizedAdmin)
+        }
     }
 
     // ── #924: WASM upgrade with migration version guard ───────────────────────
 
-    /// Upgrade the contract WASM. Gated by the admin quorum.
-    /// Stores a `MigrationVersion` so the same migration cannot run twice.
-    pub fn upgrade(
-        env: Env,
-        new_wasm_hash: BytesN<32>,
-        migration_version: u32,
-    ) -> Result<(), Error> {
-        Self::_require_admin(&env)?;
-
-        let current_version: u32 = env
-            .storage()
-            .instance()
-            .get(&DataKey::MigrationVersion)
-            .unwrap_or(0);
-
-        if migration_version <= current_version {
-            return Err(Error::MigrationAlreadyApplied);
+    /// Upgrade the contract WASM. Requires a passed admin proposal (#916).
+    /// Use `propose_admin_change` + `approve_admin_change` to create and approve
+    /// an `UpgradeWasm` proposal, then call this with the proposal_id.
+    pub fn upgrade(env: Env, caller: Address, proposal_id: u64) -> Result<(), Error> {
+        caller.require_auth();
+        let action = Self::_consume_admin_proposal(&env, &caller, proposal_id,
+            |action| matches!(action, AdminChangeAction::UpgradeWasm(_, _)))?;
+        if let AdminChangeAction::UpgradeWasm(new_wasm_hash, migration_version) = action {
+            let current_version: u32 = env
+                .storage()
+                .instance()
+                .get(&DataKey::MigrationVersion)
+                .unwrap_or(0);
+            if migration_version <= current_version {
+                return Err(Error::MigrationAlreadyApplied);
+            }
+            env.storage()
+                .instance()
+                .set(&DataKey::MigrationVersion, &migration_version);
+            env.deployer().update_current_contract_wasm(new_wasm_hash);
+            Ok(())
+        } else {
+            Err(Error::NotAuthorizedAdmin)
         }
-
-        env.storage()
-            .instance()
-            .set(&DataKey::MigrationVersion, &migration_version);
-
-        env.deployer().update_current_contract_wasm(new_wasm_hash);
-        Ok(())
     }
 
     // ── #927: Whitelist management ────────────────────────────────────────────
@@ -1206,6 +1355,37 @@ impl SplitterV3 {
             }
         }
         Err(Error::NotAuthorizedAdmin)
+    }
+
+    /// #916: Validate that a proposal has reached quorum, mark it executed,
+    /// and return its action. The `predicate` ensures the caller is using the
+    /// right execution function for the proposal's action type.
+    fn _consume_admin_proposal(
+        env: &Env,
+        caller: &Address,
+        proposal_id: u64,
+        predicate: impl Fn(&AdminChangeAction) -> bool,
+    ) -> Result<AdminChangeAction, Error> {
+        Self::_require_quorum_admin(env, caller)?;
+        let mut proposal: AdminProposal = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminProposal(proposal_id))
+            .ok_or(Error::ProposalNotFound)?;
+        if proposal.executed {
+            return Err(Error::AlreadyExecuted);
+        }
+        if !predicate(&proposal.action) {
+            return Err(Error::NotAuthorizedAdmin);
+        }
+        if proposal.approvals.len() < proposal.threshold {
+            return Err(Error::QuorumNotReached);
+        }
+        proposal.executed = true;
+        env.storage()
+            .persistent()
+            .set(&DataKey::AdminProposal(proposal_id), &proposal);
+        Ok(proposal.action)
     }
 
     fn _set_verified(env: &Env, user: &Address, status: bool) {

@@ -33,4 +33,9 @@ pub enum DataKey {
     ProtocolVersion,
     // #911: protocol fee wallet (alias for Treasury used in init)
     FeeWallet,
+    // #916: multi-sig admin change proposals
+    AdminProposal(u64),
+    NextAdminProposalId,
+    /// Minimum approvals required to execute a sensitive admin action.
+    AdminThreshold,
 }
