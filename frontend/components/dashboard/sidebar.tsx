@@ -18,6 +18,8 @@ import {
   PanelLeftOpen,
   History as HistoryIcon,
   Shield,
+  TrendingDown,
+  LayoutTemplate,
   ShieldAlert,
   ShieldCheck,
   Menu,
@@ -124,6 +126,8 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       icon: CirclePlus,
     },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
+    { label: "Disbursements", href: "/dashboard/disbursements", icon: TrendingDown },
+    { label: "Templates", href: "/dashboard/templates", icon: LayoutTemplate },
     {
       label: "Approval Policies",
       href: "/dashboard/policies",
