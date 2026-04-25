@@ -18,6 +18,8 @@ import {
   PanelLeftOpen,
   History as HistoryIcon,
   Shield,
+  TrendingDown,
+  LayoutTemplate,
   ShieldAlert,
   ShieldCheck,
   Menu,
@@ -30,6 +32,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react";
 import { TransactionQueueManager } from "@/components/dashboard/TransactionQueueManager";
+import { NavSyncIndicator } from "@/components/SyncStatusIndicator";
 
 type NavItem = {
   label: string;
@@ -109,6 +112,11 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       icon: ShieldCheck,
     },
     {
+      label: "Reports",
+      href: "/dashboard/disbursement-report",
+      icon: FileText,
+    },
+    {
       label: "History",
       onClick: onOpenAuditLog,
       icon: HistoryIcon,
@@ -119,6 +127,8 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       icon: CirclePlus,
     },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
+    { label: "Disbursements", href: "/dashboard/disbursements", icon: TrendingDown },
+    { label: "Templates", href: "/dashboard/templates", icon: LayoutTemplate },
     {
       label: "Approval Policies",
       href: "/dashboard/policies",
@@ -407,6 +417,9 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
           </div>
         </div>
 
+        <div className="px-3 pb-2">
+          <NavSyncIndicator />
+        </div>
         <TransactionQueueManager collapsed={collapsed} />
       </aside>
 
